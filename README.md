@@ -124,7 +124,5 @@ src/
 
 ## Known limitations
 
-- Batch Review generates AI summaries sequentially, not in parallel — reviewing many PRs at once will take proportionally longer, by design (avoids hammering the OpenAI API and keeps costs predictable).
-- Inline comments are user-authored only (typed directly in the diff editor); the AI review's `potentialIssues` aren't auto-posted as inline comments — they only appear in the summary.
 - Settings/Integrations tabs are UI + storage only; the specialized review passes and additional provider credentials aren't yet used by the review pipeline (see scope note above).
 - OAuth requires a Bitbucket OAuth consumer you provide; API-token auth has no such prerequisite and is the faster path to get started.
