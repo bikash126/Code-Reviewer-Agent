@@ -78,6 +78,19 @@ describe("resolveBitbucketRepository", () => {
     expect(showQuickPick).not.toHaveBeenCalled();
   });
 
+  it("re-prompts on force even when a remembered choice exists", async () => {
+    candidates = [repoA, repoB];
+    const memento = makeMemento();
+    await memento.update("bitbucketReviewer.selectedRepoRootPath", "/repos/a");
+    showQuickPick.mockResolvedValue({ label: "ws/repo-b", description: "/repos/b", candidate: repoB });
+
+    const result = await resolveBitbucketRepository(memento as never, { forcePrompt: true });
+
+    expect(result).toEqual(repoB.remote);
+    expect(showQuickPick).toHaveBeenCalledTimes(1);
+    expect(memento.get("bitbucketReviewer.selectedRepoRootPath")).toBe("/repos/b");
+  });
+
   it("re-prompts when the remembered repo is no longer among the candidates", async () => {
     candidates = [repoA, repoB];
     const memento = makeMemento();

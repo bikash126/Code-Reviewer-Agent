@@ -67,7 +67,6 @@ export function App(): React.JSX.Element {
         </span>
         <button
           onClick={() => {
-            dispatch({ type: "resetForRepositorySwitch" });
             postMessage({ type: "switchRepository" });
           }}
         >

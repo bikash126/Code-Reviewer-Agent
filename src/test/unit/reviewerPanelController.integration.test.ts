@@ -78,15 +78,18 @@ function setupHarness() {
     connected: false,
   };
 
-  // Simulates a workspace with two Bitbucket repos: `forgetRemote` (as triggered by the
-  // "Switch Repository" command) flips which one `resolveRemote` returns next.
+  // Simulates a workspace with two Bitbucket repos. `resolveRemote({ forcePrompt: true })` switches to the other repo.
   const repoCandidates = [
     { workspace: "my-workspace", repoSlug: "my-repo" },
     { workspace: "my-workspace", repoSlug: "other-repo" },
   ];
   let repoIndex = 0;
-  const forgetRemote = vi.fn(async () => {
-    repoIndex = (repoIndex + 1) % repoCandidates.length;
+  const forgetRemote = vi.fn(async () => {});
+  const resolveRemote = vi.fn(async (options?: { forcePrompt?: boolean }) => {
+    if (options?.forcePrompt) {
+      repoIndex = (repoIndex + 1) % repoCandidates.length;
+    }
+    return repoCandidates[repoIndex];
   });
 
   const defaults = defaultReviewSettings();
@@ -94,7 +97,7 @@ function setupHarness() {
   const integrations = defaultIntegrationsState();
 
   const deps: ReviewerPanelDeps = {
-    resolveRemote: async () => repoCandidates[repoIndex],
+    resolveRemote,
     forgetRemote,
     getConnectionState: async (workspace, repoSlug) =>
       connected
@@ -138,7 +141,7 @@ function setupHarness() {
   };
 
   const controller = new ReviewerPanelController(deps);
-  return { controller, posted, bbFetch, oaFetch, deps, connectionStateRef: connectionState, integrations };
+  return { controller, posted, bbFetch, oaFetch, deps, connectionStateRef: connectionState, integrations, resolveRemote };
 }
 
 describe("ReviewerPanelController message flow", () => {
@@ -306,8 +309,8 @@ describe("ReviewerPanelController message flow", () => {
     expect(bbFetch.mock.calls.some(([url]) => String(url).includes("/comments"))).toBe(false);
   });
 
-  it("switching repository forgets the remote, clears cached PR state, and reloads the new repo's PR list", async () => {
-    const { controller, posted, bbFetch, deps } = setupHarness();
+  it("switching repository prompts for repository and reloads the new repo's PR list", async () => {
+    const { controller, posted, bbFetch, resolveRemote } = setupHarness();
     bbFetch.mockImplementation(async (url) => {
       const u = String(url);
       if (u.includes("my-repo/pullrequests?")) return jsonResponse({ values: [makePrJson(1)], next: undefined });
@@ -323,13 +326,15 @@ describe("ReviewerPanelController message flow", () => {
     posted.length = 0;
     await controller.handleMessage({ type: "switchRepository" });
 
-    expect(deps.forgetRemote).toHaveBeenCalledTimes(1);
     expect(posted.find((m) => m.type === "connectionState")).toMatchObject({
       state: { connected: true, repoSlug: "other-repo" },
     });
     expect(posted.filter((m) => m.type === "pullRequestList").at(-1)).toMatchObject({
       pullRequests: [{ id: 2 }],
     });
+
+    const lastResolveCall = resolveRemote.mock.calls.at(-1);
+    expect(lastResolveCall?.[0]).toEqual({ forcePrompt: true });
   });
 
   it("sends a settings snapshot on ready", async () => {

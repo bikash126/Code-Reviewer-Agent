@@ -30,7 +30,7 @@ export function createReviewerPanelDeps(
   const secretStore = new SecretStore(context.secrets);
 
   return {
-    resolveRemote: () => resolveBitbucketRepository(context.workspaceState),
+    resolveRemote: (options) => resolveBitbucketRepository(context.workspaceState, options),
     forgetRemote: () => forgetRememberedRepository(context.workspaceState),
     getConnectionState: (workspace, repoSlug) => authManager.getConnectionState(workspace, repoSlug),
     connectAuth: () => authManager.connect(),

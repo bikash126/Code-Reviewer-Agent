@@ -12,6 +12,7 @@ import {
   ReviewSettings,
   WebviewToExtensionMessage,
 } from "../types";
+import { ResolveBitbucketRepositoryOptions } from "../git/repoPicker";
 
 /**
  * All dependencies the controller needs, factored out so the message-handling
@@ -19,7 +20,7 @@ import {
  * Bitbucket, or OpenAI backend.
  */
 export interface ReviewerPanelDeps {
-  resolveRemote: () => Promise<BitbucketRemoteInfo>;
+  resolveRemote: (options?: ResolveBitbucketRepositoryOptions) => Promise<BitbucketRemoteInfo>;
   /** Clears any remembered repository choice so the next `resolveRemote()` re-prompts. */
   forgetRemote: () => Promise<void>;
   getConnectionState: (workspace?: string, repoSlug?: string) => Promise<ConnectionState>;
@@ -151,10 +152,9 @@ export class ReviewerPanelController {
     this.deps.post({ type: "connectionState", state });
   }
 
-  /** Forgets the currently resolved repository, re-prompts if multiple candidates exist, and reloads. */
+  /** Forces a repository picker prompt, then reloads state for the selected repository. */
   async switchRepository(): Promise<void> {
-    await this.deps.forgetRemote();
-    this.remoteInfo = undefined;
+    this.remoteInfo = await this.deps.resolveRemote({ forcePrompt: true });
     this.bitbucketClient = undefined;
     this.detailCache.clear();
     this.reviewCache.clear();

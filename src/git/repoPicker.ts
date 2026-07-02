@@ -4,6 +4,11 @@ import { BitbucketRepoCandidate, findBitbucketRepositories, NoBitbucketRemoteErr
 
 const REMEMBERED_REPO_KEY = "bitbucketReviewer.selectedRepoRootPath";
 
+export interface ResolveBitbucketRepositoryOptions {
+  /** Forces showing the repository picker even if a remembered repository exists. */
+  forcePrompt?: boolean;
+}
+
 /**
  * Resolves which Bitbucket repository the panel should target.
  * - Zero candidates: throws.
@@ -11,7 +16,10 @@ const REMEMBERED_REPO_KEY = "bitbucketReviewer.selectedRepoRootPath";
  * - Multiple candidates: uses the previously remembered choice for this workspace
  *   if it's still present, otherwise prompts with a Quick Pick and remembers the answer.
  */
-export async function resolveBitbucketRepository(workspaceState: vscode.Memento): Promise<BitbucketRemoteInfo> {
+export async function resolveBitbucketRepository(
+  workspaceState: vscode.Memento,
+  options: ResolveBitbucketRepositoryOptions = {},
+): Promise<BitbucketRemoteInfo> {
   const candidates = await findBitbucketRepositories();
   if (candidates.length === 0) {
     throw new NoBitbucketRemoteError();
@@ -20,10 +28,12 @@ export async function resolveBitbucketRepository(workspaceState: vscode.Memento)
     return candidates[0].remote;
   }
 
-  const rememberedPath = workspaceState.get<string>(REMEMBERED_REPO_KEY);
-  const remembered = candidates.find((c) => c.rootPath === rememberedPath);
-  if (remembered) {
-    return remembered.remote;
+  if (!options.forcePrompt) {
+    const rememberedPath = workspaceState.get<string>(REMEMBERED_REPO_KEY);
+    const remembered = candidates.find((c) => c.rootPath === rememberedPath);
+    if (remembered) {
+      return remembered.remote;
+    }
   }
 
   const picked = await promptForRepository(candidates);
