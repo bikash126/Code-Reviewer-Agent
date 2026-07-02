@@ -1,0 +1,343 @@
+{
+  "name": "bitbucket-pr-reviewer",
+  "displayName": "Bitbucket PR Reviewer",
+  "description": "List Bitbucket Cloud pull requests, run AI-assisted reviews, and post approved summaries back to Bitbucket.",
+  "version": "0.1.8",
+  "publisher": "local-dev",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bitbucketReviewer",
+          "title": "Bitbucket PR Reviewer",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "bitbucketReviewer": [
+        {
+          "type": "webview",
+          "id": "bitbucketReviewer.sidebarView",
+          "name": "PR Reviewer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "bitbucketReviewer.connect",
+        "title": "Bitbucket PR Reviewer: Connect to Bitbucket"
+      },
+      {
+        "command": "bitbucketReviewer.refreshPullRequests",
+        "title": "Bitbucket PR Reviewer: Refresh Pull Requests",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "bitbucketReviewer.openReviewer",
+        "title": "Bitbucket PR Reviewer: Open Reviewer"
+      },
+      {
+        "command": "bitbucketReviewer.switchRepository",
+        "title": "Bitbucket PR Reviewer: Switch Repository"
+      },
+      {
+        "command": "bitbucketReviewer.openSettings",
+        "title": "Bitbucket PR Reviewer: Open Settings"
+      },
+      {
+        "command": "bitbucketReviewer.openIntegrations",
+        "title": "Bitbucket PR Reviewer: Open Integrations"
+      },
+      {
+        "command": "bitbucketReviewer.openChangelog",
+        "title": "Bitbucket PR Reviewer: Open Changelog"
+      },
+      {
+        "command": "bitbucketReviewer.openBatchReview",
+        "title": "Bitbucket PR Reviewer: Open Batch Review"
+      },
+      {
+        "command": "bitbucketReviewer.runReview",
+        "title": "Bitbucket PR Reviewer: Run AI Review"
+      },
+      {
+        "command": "bitbucketReviewer.postSummary",
+        "title": "Bitbucket PR Reviewer: Post Summary to Bitbucket"
+      },
+      {
+        "command": "bitbucketReviewer.signOut",
+        "title": "Bitbucket PR Reviewer: Sign Out"
+      },
+      {
+        "command": "bitbucketReviewer.postInlineComment",
+        "title": "Post Comment to Bitbucket"
+      },
+      {
+        "command": "bitbucketReviewer.disposeCommentThread",
+        "title": "Discard",
+        "icon": "$(close)"
+      }
+    ],
+    "menus": {
+      "comments/commentThread/context": [
+        {
+          "command": "bitbucketReviewer.postInlineComment",
+          "group": "inline",
+          "when": "commentController == bitbucketReviewer.comments"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "bitbucketReviewer.disposeCommentThread",
+          "group": "navigation",
+          "when": "commentController == bitbucketReviewer.comments"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Bitbucket PR Reviewer",
+      "properties": {
+        "bitbucketReviewer.authMethod": {
+          "type": "string",
+          "enum": [
+            "apiToken",
+            "oauth"
+          ],
+          "enumDescriptions": [
+            "Authenticate with an Atlassian account email + API token.",
+            "Authenticate with a Bitbucket OAuth 2.0 consumer (authorization code flow)."
+          ],
+          "default": "apiToken",
+          "description": "Method used to authenticate with Bitbucket Cloud."
+        },
+        "bitbucketReviewer.oauth.clientId": {
+          "type": "string",
+          "default": "",
+          "description": "OAuth consumer Key for the Bitbucket OAuth 2.0 app (required when authMethod is 'oauth')."
+        },
+        "bitbucketReviewer.oauth.clientSecret": {
+          "type": "string",
+          "default": "",
+          "description": "OAuth consumer Secret for the Bitbucket OAuth 2.0 app. Stored in settings for reference only; the exchanged tokens are stored securely in SecretStorage. Prefer setting this via a machine-scoped settings file."
+        },
+        "bitbucketReviewer.openai.model": {
+          "type": "string",
+          "default": "gpt-5",
+          "description": "OpenAI model to use for the Responses API when generating PR reviews."
+        },
+        "bitbucketReviewer.review.maxDiffBytes": {
+          "type": "number",
+          "default": 200000,
+          "description": "Maximum size (in bytes) of the PR diff to send to the OpenAI Responses API. Larger diffs are truncated with a note in the prompt."
+        },
+        "bitbucketReviewer.commentFormat.showSeverity": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include a [LOW]/[MEDIUM]/[HIGH] severity prefix in each posted comment's title."
+        },
+        "bitbucketReviewer.commentFormat.showCategory": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include a \"Category: ...\" line in each posted comment."
+        },
+        "bitbucketReviewer.commentFormat.showFooter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include a \"Generated by Bitbucket PR Reviewer\" footer in each posted comment."
+        },
+        "bitbucketReviewer.commentFormat.template": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "**[{severity}] {title}**\n\n*Category: {category}*\n\n{description}\n\n**Suggestion:** {suggestion}\n\n---\n*Generated by Bitbucket PR Reviewer ({model})*",
+          "markdownDescription": "Custom template for published comments. Available placeholders: `{severity}` `{title}` `{category}` `{description}` `{suggestion}` `{model}`. Leave empty to use the default format."
+        },
+        "bitbucketReviewer.reviewPrompt.custom": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "",
+          "markdownDescription": "Custom instructions added to every AI review request. Use this to customize review focus, coding standards, or project-specific rules."
+        },
+        "bitbucketReviewer.enhancedSecurityScan.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run a specialized AI security analysis pass alongside the standard review. When disabled, the always-on security focus and regex rules still apply."
+        },
+        "bitbucketReviewer.reviewPasses.security": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the specialized Security review pass."
+        },
+        "bitbucketReviewer.reviewPasses.bugs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the specialized Bugs review pass."
+        },
+        "bitbucketReviewer.reviewPasses.performance": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the specialized Performance review pass."
+        },
+        "bitbucketReviewer.reviewPasses.style": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the specialized Style review pass."
+        },
+        "bitbucketReviewer.passPrompts.security": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "You are a senior security engineer performing a security-focused code review.\n\nFocus ONLY on security vulnerabilities:\n- SQL injection, XSS, CSRF, command injection\n- Authentication/authorization flaws\n- Sensitive data exposure (API keys, passwords, PII)\n- Insecure cryptography or random number generation\n- Path traversal and file inclusion vulnerabilities\n- Insecure deserialization\n- SSRF (Server-Side Request Forgery)\n- Hardcoded secrets or credentials\n- Missing input validation on untrusted data\n- Unsafe use of eval(), innerHTML, or similar\n\nDO NOT report:\n- Style issues, naming conventions\n- Performance optimizations\n- General code quality concerns\n- Issues unrelated to security",
+          "markdownDescription": "Prompt used for the specialized Security review pass."
+        },
+        "bitbucketReviewer.passPrompts.bugs": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "You are a senior software engineer performing a bug-focused code review.\n\nFocus ONLY on logic errors and bugs:\n- Null/undefined reference errors\n- Off-by-one errors, boundary conditions\n- Race conditions and concurrency issues\n- Resource leaks (memory, file handles, connections)\n- Incorrect error handling or swallowed exceptions\n- Type mismatches and casting errors\n- Infinite loops or recursion without base case\n- Incorrect boolean logic (AND/OR confusion)\n- Missing edge case handling\n- State management issues\n- Async/await misuse\n\nDO NOT report:\n- Style issues, naming conventions\n- Security vulnerabilities (separate pass)\n- Performance optimizations\n- Code that works but could be cleaner",
+          "markdownDescription": "Prompt used for the specialized Bugs review pass."
+        },
+        "bitbucketReviewer.passPrompts.performance": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "You are a performance engineer performing a performance-focused code review.\n\nFocus ONLY on performance issues:\n- O(n²) or worse algorithms where O(n) is possible\n- Unnecessary database queries (N+1 problem)\n- Missing indexes or inefficient queries\n- Unnecessary object creation in loops\n- Blocking I/O in async contexts\n- Memory leaks or excessive memory usage\n- Unnecessary re-renders in UI frameworks\n- Missing caching opportunities\n- Inefficient data structures\n- Synchronous operations that should be async\n\nDO NOT report:\n- Style issues, naming conventions\n- Security vulnerabilities\n- Bugs that don't affect performance\n- Micro-optimizations with negligible impact",
+          "markdownDescription": "Prompt used for the specialized Performance review pass."
+        },
+        "bitbucketReviewer.passPrompts.style": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "You are a senior software engineer performing a style and code-quality-focused review.\n\nFocus ONLY on style and maintainability issues:\n- Naming conventions and consistency\n- Code formatting and structure\n- Function/method length and single-responsibility violations\n- Duplicated code that should be extracted\n- Missing or misleading comments and documentation\n- Inconsistent patterns compared to the rest of the codebase\n- Dead code and unused variables/imports\n- Readability and clarity of complex expressions\n\nDO NOT report:\n- Security vulnerabilities (separate pass)\n- Bugs or logic errors (separate pass)\n- Performance optimizations (separate pass)\n- Purely subjective preferences with no maintainability impact",
+          "markdownDescription": "Prompt used for the specialized Style review pass."
+        },
+        "bitbucketReviewer.codeQuality.customPrompt": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "",
+          "markdownDescription": "Custom instructions added to the Code Quality Assessment pass, which scores Design & Architecture, Code Clarity, Error Handling, Complexity & Simplicity, Testability, and Production Readiness (1-5 scale). Example: \"Focus on SOLID principles and clean architecture\"."
+        },
+        "bitbucketReviewer.excludedFiles.customPatterns": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "",
+          "markdownDescription": "Custom exclude patterns, one regex per line. Lock files, generated code, and build outputs are excluded by default (see the 13 built-in `bitbucketReviewer.builtInRules.*` settings)."
+        },
+        "bitbucketReviewer.fileRules.alwaysReview": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "",
+          "markdownDescription": "Patterns (one regex per line) for files that always get a full AI review, even if other rules mark them trivial. Example: `\\.github/workflows/`, `Dockerfile`, `bitbucket-pipelines\\.yml`."
+        },
+        "bitbucketReviewer.fileRules.treatAsTrivial": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "",
+          "markdownDescription": "Additional patterns (one regex per line) for files that should be treated as trivial and skipped. Example: `\\.css$`, `styles/`, `locales/`."
+        },
+        "bitbucketReviewer.builtInRules.lockFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat dependency lock files as trivial (package-lock.json, yarn.lock, pnpm-lock.yaml, Gemfile.lock, poetry.lock, composer.lock)."
+        },
+        "bitbucketReviewer.builtInRules.minifiedFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat minified files as trivial (*.min.js, *.min.css)."
+        },
+        "bitbucketReviewer.builtInRules.sourceMaps": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat source map files as trivial (*.map)."
+        },
+        "bitbucketReviewer.builtInRules.generatedCode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat generated code as trivial (*.generated.*, *_pb2.py, *.g.dart)."
+        },
+        "bitbucketReviewer.builtInRules.buildOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat build output directories as trivial (dist/, build/, out/)."
+        },
+        "bitbucketReviewer.builtInRules.vendorDirectories": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat vendored third-party directories as trivial (vendor/, third_party/)."
+        },
+        "bitbucketReviewer.builtInRules.snapshotTests": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat snapshot test files as trivial (__snapshots__/, *.snap)."
+        },
+        "bitbucketReviewer.builtInRules.binaryAssets": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat binary asset files as trivial (*.png, *.jpg, *.gif, *.ico, *.woff, *.woff2)."
+        },
+        "bitbucketReviewer.builtInRules.compiledBinaries": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat compiled binaries as trivial (*.wasm, *.dll, *.so, *.dylib)."
+        },
+        "bitbucketReviewer.builtInRules.generatedApiClients": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat generated API clients/schemas as trivial (*.pb.go, openapi-generated/)."
+        },
+        "bitbucketReviewer.builtInRules.changelogAndLicense": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat changelog and license files as trivial (CHANGELOG.md, LICENSE*)."
+        },
+        "bitbucketReviewer.builtInRules.editorConfig": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat editor/IDE configuration as trivial (.vscode/, .idea/)."
+        },
+        "bitbucketReviewer.builtInRules.localizationFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat localization/translation files as trivial (locales/, *.i18n.json, *.po)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p ./",
+    "test:unit": "vitest run",
+    "test:integration": "node ./out/test/runTest.js",
+    "pretest:integration": "tsc -p ./src/test/integration/tsconfig.json",
+    "lint": "eslint src --ext ts,tsx"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@types/mocha": "^10.0.6",
+    "@vscode/test-electron": "^2.3.9",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.56.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.3.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
