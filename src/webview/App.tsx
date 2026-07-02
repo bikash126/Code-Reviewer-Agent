@@ -7,7 +7,7 @@ import { PRDetail } from "./components/PRDetail";
 import { ReviewPanel } from "./components/ReviewPanel";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
-import { ChangelogPage } from "./components/changelog/ChangelogPage";
+// import { ChangelogPage } from "./components/changelog/ChangelogPage";
 import { BatchReviewPage } from "./components/batch/BatchReviewPage";
 
 export function App(): React.JSX.Element {
@@ -94,12 +94,12 @@ export function App(): React.JSX.Element {
         >
           Integrations
         </button>
-        <button
+        {/* <button
           className={state.activeTab === "changelog" ? "app-tab active" : "app-tab"}
           onClick={() => dispatch({ type: "setActiveTab", tab: "changelog" })}
         >
           Changelog
-        </button>
+        </button> */}
         <button
           className={state.activeTab === "batch" ? "app-tab active" : "app-tab"}
           onClick={() => dispatch({ type: "setActiveTab", tab: "batch" })}
@@ -157,11 +157,11 @@ export function App(): React.JSX.Element {
           <IntegrationsPage integrations={state.integrations} />
         </div>
       )}
-      {state.activeTab === "changelog" && (
+      {/* {state.activeTab === "changelog" && (
         <div className="app-body settings-body">
           <ChangelogPage />
         </div>
-      )}
+      )} */}
       {state.activeTab === "batch" && (
         <div className="app-body settings-body">
           <BatchReviewPage
